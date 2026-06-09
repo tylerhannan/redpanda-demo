@@ -116,12 +116,21 @@ def main() -> None:
     try:
         while not _stop and (forever or sent < target):
             event = make_event(pool)
-            producer.produce(
-                topic=args.topic,
-                key=event["session_id"],
-                value=json.dumps(event),
-                on_delivery=_delivery_report,
-            )
+            payload = json.dumps(event)
+            key = event["session_id"]
+            # Apply backpressure: if librdkafka's local queue is full, poll to
+            # let it drain and retry instead of dropping the event.
+            while True:
+                try:
+                    producer.produce(
+                        topic=args.topic,
+                        key=key,
+                        value=payload,
+                        on_delivery=_delivery_report,
+                    )
+                    break
+                except BufferError:
+                    producer.poll(0.5)
             sent += 1
 
             # Serve librdkafka's background callbacks.
