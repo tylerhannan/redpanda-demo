@@ -9,6 +9,18 @@
 
 
 -- ---------------------------------------------------------------------------
+-- 0. Live ingestion check: re-run this to watch the row count climb while the
+--    producer + ClickPipes stream new events in. formatReadableQuantity makes
+--    the number easy to read out loud during a demo.
+-- ---------------------------------------------------------------------------
+SELECT
+    formatReadableQuantity(count())     AS total_rows,
+    max(event_time)                     AS latest_event,
+    dateDiff('second', max(event_time), now()) AS seconds_behind
+FROM default.clickstream_events;
+
+
+-- ---------------------------------------------------------------------------
 -- 1. Raw scan speed: full-table aggregation in milliseconds.
 --    countIf/sumIf let you compute many conditional metrics in ONE pass.
 -- ---------------------------------------------------------------------------
