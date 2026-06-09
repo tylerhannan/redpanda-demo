@@ -4,15 +4,7 @@ A small, end-to-end demo that streams synthetic **clickstream events** into a
 **Redpanda Serverless** topic and ingests them into **ClickHouse Cloud** using
 **ClickPipes**, ClickHouse's managed Kafka ingestion service.
 
-```mermaid
-flowchart LR
-    P["produce.py<br/>(Python)<br/>SASL_SSL / SCRAM"]
-    R["Redpanda Serverless<br/>topic: clickstream_events"]
-    C["ClickHouse Cloud<br/>table: clickstream_events"]
-
-    P -- "JSON events<br/>(Kafka API)" --> R
-    R -- "ClickPipes<br/>(JSONEachRow)" --> C
-```
+![Architecture: produce.py streams JSON events over the Kafka API into a Redpanda Serverless topic, which ClickPipes ingests into a ClickHouse Cloud table](assets/architecture.png)
 
 Because Redpanda Serverless is publicly reachable, ClickPipes can connect to it
 directly, with no tunnels or self-hosted connector.
