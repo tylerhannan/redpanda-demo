@@ -136,7 +136,12 @@ SELECT
     event_type,
     url,
     row_number() OVER w AS step,
-    dateDiff('second', lagInFrame(toDateTime(event_time)) OVER w, toDateTime(event_time)) AS secs_since_prev
+    -- NULL on the first event of the session (no previous row to diff against).
+    if(
+        row_number() OVER w = 1,
+        NULL,
+        dateDiff('second', lagInFrame(toDateTime(event_time)) OVER w, toDateTime(event_time))
+    ) AS secs_since_prev
 FROM default.clickstream_events
 WHERE session_id =
 (
