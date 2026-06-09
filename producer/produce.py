@@ -93,7 +93,7 @@ def main() -> None:
     signal.signal(signal.SIGINT, _handle_sigint)
 
     producer = build_producer()
-    pool = SessionPool()
+    pool = SessionPool(backfill_seconds=backfill_seconds)
 
     target = args.count
     rate = max(1, args.rate)
@@ -115,7 +115,7 @@ def main() -> None:
     next_tick = time.perf_counter()
     try:
         while not _stop and (forever or sent < target):
-            event = make_event(pool, backfill_seconds)
+            event = make_event(pool)
             producer.produce(
                 topic=args.topic,
                 key=event["session_id"],
