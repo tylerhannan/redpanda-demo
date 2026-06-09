@@ -5,6 +5,7 @@ Usage:
     python produce.py --count 5000    # override number of events
     python produce.py --rate 500      # override events/second
     python produce.py --count 0       # run forever (Ctrl-C to stop)
+    python produce.py --backfill-days 7   # spread event_time over the last 7 days
 
 The events are JSON-encoded, one object per Kafka message, which lines up
 with the ClickPipes "JSONEachRow" ingestion format.
@@ -79,7 +80,15 @@ def main() -> None:
     parser.add_argument("--count", type=int, default=int(os.environ.get("EVENT_COUNT", "100000")))
     parser.add_argument("--rate", type=int, default=int(os.environ.get("EVENTS_PER_SECOND", "200")))
     parser.add_argument("--topic", default=os.environ.get("REDPANDA_TOPIC", "clickstream_events"))
+    parser.add_argument(
+        "--backfill-days",
+        type=float,
+        default=float(os.environ.get("EVENT_BACKFILL_DAYS", "0")),
+        help="Spread event_time uniformly across the last N days (0 = use current time).",
+    )
     args = parser.parse_args()
+
+    backfill_seconds = max(0.0, args.backfill_days) * 86400.0
 
     signal.signal(signal.SIGINT, _handle_sigint)
 
@@ -91,9 +100,14 @@ def main() -> None:
     interval = 1.0 / rate
     forever = target <= 0
 
+    time_mode = (
+        f"event_time spread across last {args.backfill_days:g} day(s)"
+        if backfill_seconds > 0
+        else "event_time = now (live)"
+    )
     print(
         f"Producing {'unlimited' if forever else target} events to topic "
-        f"'{args.topic}' at ~{rate}/s ...",
+        f"'{args.topic}' at ~{rate}/s ({time_mode}) ...",
         file=sys.stderr,
     )
 
@@ -101,7 +115,7 @@ def main() -> None:
     next_tick = time.perf_counter()
     try:
         while not _stop and (forever or sent < target):
-            event = make_event(pool)
+            event = make_event(pool, backfill_seconds)
             producer.produce(
                 topic=args.topic,
                 key=event["session_id"],

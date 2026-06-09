@@ -16,7 +16,7 @@ if [[ -f "$ROOT_DIR/.env" ]]; then
   source "$ROOT_DIR/.env"
   set +a
 else
-  echo "No .env found at $ROOT_DIR/.env — copy .env.example and fill it in." >&2
+  echo "No .env found at $ROOT_DIR/.env. Copy .env.example and fill it in." >&2
   exit 1
 fi
 

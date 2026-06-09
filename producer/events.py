@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import random
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 EVENT_TYPES = [
     ("page_view", 0.70),
@@ -63,17 +63,27 @@ class SessionPool:
         return random.choice(self._sessions)
 
 
-def make_event(pool: SessionPool) -> dict:
+def make_event(pool: SessionPool, backfill_seconds: float = 0.0) -> dict:
+    """Build one event.
+
+    backfill_seconds > 0 spreads event_time uniformly across the last
+    `backfill_seconds` (used for bulk preloads so the data spans days).
+    backfill_seconds == 0 stamps the event at the current time (live mode).
+    """
     user_id, session_id = pool.pick()
     event_type = random.choices(_event_names, weights=_event_weights, k=1)[0]
     price = 0.0
     if event_type in ("add_to_cart", "purchase"):
         price = round(random.uniform(9.99, 499.99), 2)
 
+    event_dt = datetime.now(timezone.utc)
+    if backfill_seconds > 0:
+        event_dt -= timedelta(seconds=random.uniform(0, backfill_seconds))
+
     return {
         "event_id": str(uuid.uuid4()),
         # ISO-8601 with milliseconds; ClickHouse parses this into DateTime64(3).
-        "event_time": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S.%f")[:-3],
+        "event_time": event_dt.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3],
         "event_type": event_type,
         "user_id": user_id,
         "session_id": session_id,

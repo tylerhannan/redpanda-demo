@@ -27,6 +27,8 @@ directly, with no tunnels or self-hosted connector.
 | `clickpipes/README.md` | ClickPipes setup: UI, `clickhousectl`, or Terraform |
 | `clickpipes/terraform/` | Optional: create the ClickPipe as code |
 | `scripts/setup_topic.sh` | Create the Redpanda topic with `rpk` |
+| `scripts/backfill.sh` | Bulk-load history (event_time spread over days) |
+| `scripts/live.sh` | Stream events in real time during the demo |
 | `.env.example` | Connection settings template |
 
 ## Prerequisites
@@ -39,7 +41,7 @@ directly, with no tunnels or self-hosted connector.
 - Optional: [`rpk`](https://docs.redpanda.com/current/get-started/rpk-install/)
   to create the topic from the CLI.
 
-## Step 1 — Create the Redpanda Serverless cluster
+## Step 1: Create the Redpanda Serverless cluster
 
 1. Sign up / log in to [Redpanda Cloud](https://cloud.redpanda.com/).
 2. Create a **Serverless** cluster (provisions in seconds).
@@ -48,14 +50,14 @@ directly, with no tunnels or self-hosted connector.
 4. From the cluster's **Kafka API** / overview page, copy the **bootstrap
    server** (host:port).
 
-## Step 2 — Configure local settings
+## Step 2: Configure local settings
 
 ```bash
 cp .env.example .env
 # Edit .env: REDPANDA_BROKERS, REDPANDA_USERNAME, REDPANDA_PASSWORD
 ```
 
-## Step 3 — Create the topic
+## Step 3: Create the topic
 
 Either via the Redpanda Console UI (topic name `clickstream_events`), or:
 
@@ -63,12 +65,12 @@ Either via the Redpanda Console UI (topic name `clickstream_events`), or:
 ./scripts/setup_topic.sh
 ```
 
-## Step 4 — Create the ClickHouse table
+## Step 4: Create the ClickHouse table
 
 In your ClickHouse Cloud **SQL console**, run the contents of
 [`clickhouse/01_schema.sql`](clickhouse/01_schema.sql).
 
-## Step 5 — Create the ClickPipe
+## Step 5: Create the ClickPipe
 
 Follow [`clickpipes/README.md`](clickpipes/README.md). For the demo, the **UI
 path** is easiest:
@@ -76,20 +78,42 @@ Data sources → Apache Kafka → Redpanda → enter broker + SCRAM credentials 
 topic `clickstream_events` → format `JSONEachRow` → existing table
 `default.clickstream_events`.
 
-## Step 6 — Produce events
+## Step 6: Produce events
 
 ```bash
 cd producer
 python3 -m venv .venv && source .venv/bin/activate
 # inside the venv, `python` now works and points at your venv interpreter
 pip install -r requirements.txt
-python produce.py --count 50000 --rate 300
 ```
 
-You should see the producer report progress. (Run with `--count 0` to stream
-continuously until you press Ctrl-C.)
+There are two modes, each with a convenience script.
 
-## Step 7 — Verify in ClickHouse
+**Backfill** (run ahead of the demo to build up a sizable dataset). Spreads
+`event_time` across the last 7 days so the data spans a realistic time range:
+
+```bash
+./scripts/backfill.sh
+```
+
+Defaults to 5,000,000 events at ~20k/s, which lands in roughly 5-10 minutes. Even
+spread over 7 days, that leaves ~30k events in any given hour, so the
+time-windowed queries still have plenty to show. Override via env vars, e.g.
+`COUNT=10000000 BACKFILL_DAYS=14 ./scripts/backfill.sh`.
+
+**Live** (run during the demo so rows land in real time). Events are stamped at
+the current time; runs until you press Ctrl-C:
+
+```bash
+./scripts/live.sh
+```
+
+Defaults to unlimited events at ~500/s. Override with e.g. `RATE=2000 ./scripts/live.sh`.
+
+Both scripts use `producer/.venv` if present, otherwise `python3`, and pass any
+extra flags through to `produce.py`.
+
+## Step 7: Verify in ClickHouse
 
 Run queries from [`clickhouse/02_verify.sql`](clickhouse/02_verify.sql). For
 example:

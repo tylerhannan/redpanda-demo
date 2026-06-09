@@ -8,7 +8,7 @@ You can set it up three ways. **The UI is recommended for a first demo.**
 
 ---
 
-## Option A — ClickHouse Cloud UI (recommended)
+## Option A: ClickHouse Cloud UI (recommended)
 
 1. Open your ClickHouse Cloud service → left sidebar → **Data sources** →
    **Add new** (a.k.a. **ClickPipes**) → **Apache Kafka** → choose **Redpanda**.
@@ -45,7 +45,7 @@ You can set it up three ways. **The UI is recommended for a first demo.**
 
 ---
 
-## Option B — `clickhousectl` (CLI)
+## Option B: `clickhousectl` (CLI)
 
 Requires `clickhousectl` v0.2.0+ and a ClickHouse Cloud API key.
 
@@ -65,7 +65,7 @@ clickhousectl cloud clickpipe create kafka <SERVICE_ID> \
 
 ---
 
-## Option C — Terraform
+## Option C: Terraform
 
 See [`terraform/`](terraform/). Requires the `ClickHouse/clickhouse` provider
 v3.14.0+ and a ClickHouse Cloud API key/secret.
