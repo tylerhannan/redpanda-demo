@@ -88,11 +88,16 @@ ORDER BY days_since_first;
 -- 5. Approximate analytics: exact vs probabilistic distinct counts.
 --    uniq()/uniqHLL12() use tiny memory and are near-instant at scale, with
 --    typical error < 1%. Great for dashboards over billions of rows.
+--    user_id is low cardinality (<=50k), so all three agree exactly. session_id
+--    is high cardinality (hundreds of thousands), so the approximate functions
+--    diverge slightly from uniqExact while using far less memory.
 -- ---------------------------------------------------------------------------
 SELECT
-    uniqExact(user_id) AS exact,
-    uniq(user_id)      AS approx_uniq,
-    uniqHLL12(user_id) AS approx_hll
+    uniqExact(user_id)    AS users_exact,
+    uniq(user_id)         AS users_approx,
+    uniqExact(session_id) AS sessions_exact,
+    uniq(session_id)      AS sessions_approx,
+    uniqHLL12(session_id) AS sessions_hll
 FROM default.clickstream_events;
 
 
