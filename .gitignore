@@ -8,6 +8,10 @@ clickpipes/terraform/*.tfstate.*
 clickpipes/terraform/.terraform/
 clickpipes/terraform/.terraform.lock.hcl
 
+# Credentials / CLI state
+.clickhouse/
+credentials.json
+
 # Certs
 *.crt
 *.pem
