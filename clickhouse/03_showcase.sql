@@ -9,9 +9,8 @@
 
 
 -- ---------------------------------------------------------------------------
--- 0. Live ingestion check: re-run this to watch the row count climb while the
---    producer + ClickPipes stream new events in. formatReadableQuantity makes
---    the number easy to read out loud during a demo.
+-- 0. Live ingestion check: re-run while the producer + ClickPipes stream new
+--    events to watch the row count climb. seconds_behind shows ingestion lag.
 -- ---------------------------------------------------------------------------
 SELECT
     formatReadableQuantity(count())     AS total_rows,
