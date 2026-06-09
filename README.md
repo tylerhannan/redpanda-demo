@@ -27,6 +27,7 @@ directly, with no tunnels or self-hosted connector.
 | `clickpipes/README.md` | ClickPipes setup: UI, `clickhousectl`, or Terraform |
 | `clickpipes/terraform/` | Optional: create the ClickPipe as code |
 | `scripts/setup_topic.sh` | Create the Redpanda topic with `rpk` |
+| `scripts/setup_topic.py` | Create the Redpanda topic without `rpk` (Python) |
 | `scripts/backfill.sh` | Bulk-load history (event_time spread over days) |
 | `scripts/live.sh` | Stream events in real time during the demo |
 | `.env.example` | Connection settings template |
@@ -37,9 +38,15 @@ directly, with no tunnels or self-hosted connector.
   gives $100 of credit for 30 days, with no credit card required.
 - A **ClickHouse Cloud** service ([free trial](https://clickhouse.com/cloud)).
 - **Python 3.9+** (check with `python3 --version`). On macOS/Homebrew use
-  `python3`; plain `python` only exists once a virtualenv is activated.
+  `python3`; plain `python` only exists once a virtualenv is activated. On
+  Python 3.14 you need `confluent-kafka >= 2.14` for a prebuilt wheel (already
+  pinned in `producer/requirements.txt`).
+- Optional: [`clickhousectl`](https://clickhouse.com/cli) to provision the
+  service, apply the schema, and create the ClickPipe from the CLI (used in
+  Steps 4-5). Service/pipe creation needs API key auth, not OAuth login.
 - Optional: [`rpk`](https://docs.redpanda.com/current/get-started/rpk-install/)
-  to create the topic from the CLI.
+  to create the topic from the CLI. If you do not have it, use the Python
+  fallback in Step 3.
 
 ## Step 1: Create the Redpanda Serverless cluster
 
@@ -59,24 +66,58 @@ cp .env.example .env
 
 ## Step 3: Create the topic
 
-Either via the Redpanda Console UI (topic name `clickstream_events`), or:
+Via the Redpanda Console UI (topic name `clickstream_events`), or with `rpk`:
 
 ```bash
 ./scripts/setup_topic.sh
 ```
 
+No `rpk`? Use the Python fallback (no extra install beyond the producer venv from
+Step 6, which uses `confluent-kafka`):
+
+```bash
+producer/.venv/bin/python scripts/setup_topic.py
+```
+
 ## Step 4: Create the ClickHouse table
 
-In your ClickHouse Cloud **SQL console**, run the contents of
-[`clickhouse/01_schema.sql`](clickhouse/01_schema.sql).
+Run the contents of [`clickhouse/01_schema.sql`](clickhouse/01_schema.sql) in
+your ClickHouse Cloud **SQL console**.
+
+Or do it from the CLI with `clickhousectl`. Mutating operations need API key auth
+(OAuth login is read-only), so log in with a key first:
+
+```bash
+clickhousectl cloud auth login --api-key <KEY_ID> --api-secret <KEY_SECRET>
+
+# Optional: create a service (skip if you already have one)
+clickhousectl cloud service create --name redpanda-demo --provider aws --region eu-central-1
+
+# Apply the schema (find <SERVICE_ID> via `clickhousectl cloud service list`)
+clickhousectl cloud service query --id <SERVICE_ID> --queries-file clickhouse/01_schema.sql
+```
+
+`service create` prints the service's default-user password once — save it.
 
 ## Step 5: Create the ClickPipe
 
-Follow [`clickpipes/README.md`](clickpipes/README.md). For the demo, the **UI
-path** is easiest:
-Data sources → Apache Kafka → Redpanda → enter broker + SCRAM credentials →
-topic `clickstream_events` → format `JSONEachRow` → existing table
+Follow [`clickpipes/README.md`](clickpipes/README.md), which covers three paths:
+the **UI** (easiest for a first demo), **`clickhousectl`**, and **Terraform**.
+
+UI quick path: Data sources → Apache Kafka → Redpanda → enter broker + SCRAM
+credentials → topic `clickstream_events` → format `JSONEachRow` → existing table
 `default.clickstream_events`.
+
+CLI quick path (see `clickpipes/README.md` for the full command, including the
+required `--column` mappings):
+
+```bash
+clickhousectl cloud clickpipe create kafka <SERVICE_ID> --name redpanda-clickstream-demo \
+  --kafka-type redpanda --brokers "$REDPANDA_BROKERS" --topics "$REDPANDA_TOPIC" \
+  --format JSONEachRow --auth SCRAM-SHA-256 --username "$REDPANDA_USERNAME" \
+  --password "$REDPANDA_PASSWORD" --offset from_beginning \
+  --database default --table clickstream_events --column "event_id:UUID" # ...and the rest
+```
 
 ## Step 6: Produce events
 

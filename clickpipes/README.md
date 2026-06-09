@@ -47,21 +47,48 @@ You can set it up three ways. **The UI is recommended for a first demo.**
 
 ## Option B: `clickhousectl` (CLI)
 
-Requires `clickhousectl` v0.2.0+ and a ClickHouse Cloud API key.
+Requires `clickhousectl` v0.2.0+ and a ClickHouse Cloud API key. Log in with API
+key auth first (OAuth login is read-only and cannot create pipes):
 
 ```bash
+clickhousectl cloud auth login --api-key <KEY_ID> --api-secret <KEY_SECRET>
+```
+
+Then create the pipe. The `--column name:type` mappings are **required**, even
+when the destination table already exists (the API rejects the request without
+them). Source the Redpanda credentials from `.env` so the password is not typed
+on the command line:
+
+```bash
+set -a && source ../.env && set +a
+
 clickhousectl cloud clickpipe create kafka <SERVICE_ID> \
   --name redpanda-clickstream-demo \
   --kafka-type redpanda \
   --brokers "$REDPANDA_BROKERS" \
-  --topics clickstream_events \
+  --topics "$REDPANDA_TOPIC" \
   --format JSONEachRow \
   --auth SCRAM-SHA-256 \
   --username "$REDPANDA_USERNAME" \
   --password "$REDPANDA_PASSWORD" \
+  --offset from_beginning \
+  --consumer-group clickpipes-redpanda-clickstream-demo \
   --database default \
-  --table clickstream_events
+  --table clickstream_events \
+  --column "event_id:UUID" \
+  --column "event_time:DateTime64(3)" \
+  --column "event_type:LowCardinality(String)" \
+  --column "user_id:UInt64" \
+  --column "session_id:UUID" \
+  --column "url:String" \
+  --column "referrer:String" \
+  --column "device:LowCardinality(String)" \
+  --column "browser:LowCardinality(String)" \
+  --column "country:LowCardinality(String)" \
+  --column "price:Decimal(10, 2)"
 ```
+
+Get `<SERVICE_ID>` from `clickhousectl cloud service list`.
 
 ---
 
