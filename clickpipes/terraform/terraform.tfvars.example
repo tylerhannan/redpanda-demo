@@ -1,0 +1,9 @@
+organization_id   = "00000000-0000-0000-0000-000000000000"
+token_key         = "your-clickhouse-cloud-api-key-id"
+token_secret      = "your-clickhouse-cloud-api-key-secret"
+service_id        = "your-clickhouse-cloud-service-id"
+
+redpanda_brokers  = "seed-xxxxxxxx.xxx.byoc.prd.cloud.redpanda.com:9092"
+redpanda_topic    = "clickstream_events"
+redpanda_username = "your-redpanda-user"
+redpanda_password = "your-redpanda-password"

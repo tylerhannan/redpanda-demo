@@ -1,0 +1,22 @@
+# Secrets / local config
+.env
+*.env
+!.env.example
+clickpipes/terraform/terraform.tfvars
+clickpipes/terraform/*.tfstate
+clickpipes/terraform/*.tfstate.*
+clickpipes/terraform/.terraform/
+clickpipes/terraform/.terraform.lock.hcl
+
+# Certs
+*.crt
+*.pem
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# OS
+.DS_Store
