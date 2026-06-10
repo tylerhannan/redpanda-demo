@@ -22,10 +22,9 @@ FROM default.clickstream_events;
 -- ---------------------------------------------------------------------------
 -- 1. Raw scan speed: full-table aggregation in milliseconds.
 --    countIf/sumIf let you compute many conditional metrics in ONE pass.
---    uniq() is the approximate distinct count (HyperLogLog): it uses a fraction
---    of the memory of uniqExact and is dramatically faster on high-cardinality
---    columns like session_id, with typical error well under 1%. Section 5 below
---    contrasts the two directly.
+--    uniq() is the approximate distinct count (HyperLogLog): it uses far less
+--    memory than uniqExact and is much faster on high-cardinality columns like
+--    session_id, with typical error under 1%. Section 5 below compares the two.
 -- ---------------------------------------------------------------------------
 SELECT
     count()                                   AS total_events,
@@ -241,10 +240,18 @@ FROM default.clickstream_events
 GROUP BY minute, event_type;
 
 -- Note: the MV only sees rows inserted AFTER it is created. To include existing
--- rows once, backfill:
+-- rows once, backfill from the base table.
+--
+-- IMPORTANT: run the backfill EXACTLY ONCE, and only for data that predates the
+-- MV. The MV trigger already rolls up every row inserted after creation, so if
+-- you backfill rows that the trigger has also seen, they get counted twice and
+-- the rollup totals drift above the base table. If you are unsure of the state,
+-- rebuild from scratch (safest during a pause in ingestion):
+--   TRUNCATE TABLE default.events_per_minute;
 --   INSERT INTO default.events_per_minute
 --   SELECT toStartOfMinute(event_time), event_type, count(), sum(price)
 --   FROM default.clickstream_events GROUP BY 1, 2;
+-- Verify it ties out: the two SELECTs in the contrast below should match.
 
 -- Query the TARGET table (events_per_minute), NOT the view (mv_events_per_minute).
 -- With the "TO <table>" syntax the materialized view stores no data of its own;
@@ -257,6 +264,37 @@ GROUP BY minute, event_type;
 -- partial sums in the background; summing at query time is correct and cheap.
 SELECT minute, event_type, sum(events) AS events, sum(revenue) AS revenue
 FROM default.events_per_minute
+GROUP BY minute, event_type
+ORDER BY minute DESC, events DESC
+LIMIT 20;
+
+
+-- ---------------------------------------------------------------------------
+-- 13. Contrast: the same result computed directly from the raw events table.
+--     Same answer, very different cost. The rollup reads a few tens of thousands
+--     of pre-aggregated rows; the raw query re-scans every event on each run.
+--     Compare the "rows read" and elapsed time in the query stats. On this
+--     dataset the rollup reads ~800x fewer rows and runs ~40x faster, and the
+--     gap grows with the base table.
+--
+--     Run both and compare. If the totals do not match, the rollup has drifted
+--     (see the double-count warning above); rebuild it with TRUNCATE + INSERT.
+-- ---------------------------------------------------------------------------
+
+-- (a) From the materialized-view rollup (cheap, pre-aggregated):
+SELECT minute, event_type, sum(events) AS events, sum(revenue) AS revenue
+FROM default.events_per_minute
+GROUP BY minute, event_type
+ORDER BY minute DESC, events DESC
+LIMIT 20;
+
+-- (b) From the raw events table (full scan, same answer):
+SELECT
+    toStartOfMinute(event_time) AS minute,
+    event_type,
+    count()    AS events,
+    sum(price) AS revenue
+FROM default.clickstream_events
 GROUP BY minute, event_type
 ORDER BY minute DESC, events DESC
 LIMIT 20;
