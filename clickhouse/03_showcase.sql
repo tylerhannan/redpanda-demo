@@ -22,11 +22,15 @@ FROM default.clickstream_events;
 -- ---------------------------------------------------------------------------
 -- 1. Raw scan speed: full-table aggregation in milliseconds.
 --    countIf/sumIf let you compute many conditional metrics in ONE pass.
+--    uniq() is the approximate distinct count (HyperLogLog): it uses a fraction
+--    of the memory of uniqExact and is dramatically faster on high-cardinality
+--    columns like session_id, with typical error well under 1%. Section 5 below
+--    contrasts the two directly.
 -- ---------------------------------------------------------------------------
 SELECT
     count()                                   AS total_events,
-    uniqExact(user_id)                        AS unique_users,
-    uniqExact(session_id)                     AS sessions,
+    uniq(user_id)                             AS unique_users,
+    uniq(session_id)                          AS sessions,
     countIf(event_type = 'purchase')          AS purchases,
     round(sumIf(price, event_type = 'purchase'), 2) AS revenue,
     round(avgIf(price, event_type = 'purchase'), 2) AS avg_order_value
